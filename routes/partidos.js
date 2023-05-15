@@ -1,29 +1,90 @@
-var mysql      = require('mysql');
-var express = require('express');
+var express = require("express");
 var router = express.Router();
-const sqlite3 = require('sqlite3').verbose();
+const JSONAPISerializer = require("jsonapi-serializer").Serializer;
+const sqlite3 = require("sqlite3").verbose();
 
 // Crea una nueva instancia de la base de datos SQLite
-const db = new sqlite3.Database('dbtfg.sqlite');
+const db = new sqlite3.Database("dbtfg.sqlite");
 
-// Ejecuta una consulta SQL
-db.all("SELECT * FROM PARTIDOS", (error, rows) => {
-  if (error) {
-    throw error;
+const getAllMatches = (req, res) => {
+  try {
+    let sql = `SELECT *
+    FROM partidos`;
+    db.all(sql, (error, rows) => {
+      if (error) {
+        console.error("Error al obtener los partidos", error);
+        db.close(); // cerrar la conexión a la base de datos en caso de error
+        return res.status(500).send("Error al obtener los partidos");
+      }
+      let responseData = [];
+      // Maneja los resultados de la consulta
+      rows.forEach((row) => {
+        const matchData = {
+          id: row.id,
+          fecha: row.fecha,
+          equipo_local: row.equipo_local,
+          equipo_visitante: row.equipo_visitante,
+          goles_local_descanso: row.goles_local_descanso,
+          goles_local_final: row.goles_local_final,
+          goles_visitante_descanso: row.goles_visitante_descanso,
+          goles_visitante_final: row.goles_visitante_final,
+          porcentaje_empate: row.porcentaje_empate,
+          porcentaje_victoria_local: row.porcentaje_victoria_local,
+          porcentaje_victoria_visitante: row.porcentaje_victoria_visitante,
+        };
+        responseData.push(matchData);
+      });
+      res.status(200).send(responseData);
+    });
+  } catch (err) {
+    console.error("Error al obtener los partidos", err);
+    res.status(500).send("Error al obtener los partidos");
   }
+};
 
-  // Maneja los resultados de la consulta
-  console.log(rows);
+const getMatchById = (req, res) => {
+  try {
+    let sql = `SELECT *
+           FROM partidos
+           WHERE id  = ?`;
+    let partidoId = req.params.id;
+
+    db.get(sql, [partidoId], (err, row) => {
+      if (err) {
+        return console.error(err.message);
+      }
+      if (!row) {
+        return res.status(404).send("No se encontró ningún partido con ese ID");
+      }
+      const responseData = {
+        id: row.id,
+        fecha: row.fecha,
+        equipo_local: row.equipo_local,
+        equipo_visitante: row.equipo_visitante,
+        goles_local_descanso: row.goles_local_descanso,
+        goles_local_final: row.goles_local_final,
+        goles_visitante_descanso: row.goles_visitante_descanso,
+        goles_visitante_final: row.goles_visitante_final,
+        porcentaje_empate: row.porcentaje_empate,
+        porcentaje_victoria_local: row.porcentaje_victoria_local,
+        porcentaje_victoria_visitante: row.porcentaje_victoria_visitante,
+      };
+
+      res.setHeader("Content-Type", "application/json");
+      res.status(200).send(responseData);
+    });
+  } catch (err) {
+    console.error("Error al obtener el partido", err);
+    res.status(500).send("Error al obtener el partido");
+  }
+};
+
+router.get("/", getAllMatches);
+router.get("/:id", getMatchById);
+
+process.on("exit", () => {
+  // Cierra la conexión a la base de datos cuando ya no la necesites
+  db.close();
 });
-
-// Cierra la conexión a la base de datos
-db.close();
-
-/* GET home page. */
-router.get('/partidos', function(req, res, next) {
-    res.send('PARTIDOS');
-    console.log("CONECTADO");
-  });
-
 
 module.exports = router;
